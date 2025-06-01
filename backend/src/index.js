@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import mongoose from "mongoose";
 
 import path from "path";
 
@@ -160,24 +161,49 @@ app.options("*", (req, res) => {
 //   });
 // }
 
-// Immediately connect to database
-connectDB().then(() => {
-  console.log('MongoDB connected successfully');
-  
-  // Only start the server when we're not in serverless mode
-  if (process.env.NODE_ENV !== 'production') {
-    server.listen(PORT, () => {
-      console.log(`Server is running on PORT:${PORT}`);
-    });
-  } else {
-    console.log('Running in serverless mode - not starting server');
+// Create a middleware to ensure database connection before handling requests
+app.use(async (req, res, next) => {
+  // Skip for OPTIONS preflight requests
+  if (req.method === 'OPTIONS') {
+    return next();
   }
-}).catch(err => {
-  console.error("Failed to connect to database:", err);
-  if (process.env.NODE_ENV !== 'production') {
-    process.exit(1);
+  
+  try {
+    // Check if already connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Database not connected, connecting now...');
+      await connectDB();
+    }
+    next();
+  } catch (error) {
+    console.error('Failed to connect to database in middleware:', error);
+    res.status(503).json({ message: 'Database connection failed, please try again later' });
   }
 });
+
+// Connect to database for server startup
+if (process.env.NODE_ENV !== 'production') {
+  // For local development, connect and start server
+  connectDB()
+    .then(() => {
+      console.log('MongoDB connected successfully');
+      server.listen(PORT, () => {
+        console.log(`Server is running on PORT:${PORT}`);
+      });
+    })
+    .catch(err => {
+      console.error("Failed to connect to database:", err);
+      process.exit(1);
+    });
+} else {
+  // For production/serverless, we'll connect on-demand in the middleware
+  console.log('Running in serverless mode - will connect to database on-demand');
+  
+  // Initial connection attempt
+  connectDB()
+    .then(() => console.log('Initial MongoDB connection established'))
+    .catch(err => console.warn('Initial MongoDB connection failed, will retry on requests:', err));
+}
 
 // For Vercel, we need to export a function or server
 // This must be a default export

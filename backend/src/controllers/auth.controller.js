@@ -2,6 +2,7 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import mongoose from "mongoose";
 
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
@@ -14,42 +15,68 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 
-    const user = await User.findOne({ email });
+    // Check database connection before proceeding
+    if (mongoose.connection.readyState !== 1) {
+      console.warn("MongoDB not connected, attempting to reconnect...");
+      try {
+        await mongoose.connect(process.env.MONGO_URI);
+      } catch (connError) {
+        console.error("Failed to reconnect to MongoDB", connError);
+        return res.status(503).json({ 
+          message: "Database service unavailable, please try again later",
+          error: "connection_error"
+        });
+      }
+    }
 
-    if (user) return res.status(400).json({ message: "Email already exists" });
+    try {
+      // Set timeout option specifically for this query
+      const user = await User.findOne({ email }).maxTimeMS(15000);
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const newUser = new User({
-      fullName,
-      email,
-      password: hashedPassword,
-    });
-
-    if (newUser) {
-      // generate jwt token here
-      generateToken(newUser._id, res);
-      await newUser.save();
-
-      res.status(201).json({
-        _id: newUser._id,
-        fullName: newUser.fullName,
-        email: newUser.email,
-        profilePic: newUser.profilePic,
-        bio: newUser.bio,
-        location: newUser.location,
-        interests: newUser.interests,
-        ecoPoints: newUser.ecoPoints,
-        followers: newUser.followers,
-        following: newUser.following,
+      if (user) return res.status(400).json({ message: "Email already exists" });
+      
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+  
+      const newUser = new User({
+        fullName,
+        email,
+        password: hashedPassword,
       });
-    } else {
-      res.status(400).json({ message: "Invalid user data" });
+  
+      if (newUser) {
+        // generate jwt token here
+        generateToken(newUser._id, res);
+        await newUser.save().maxTimeMS(15000);
+  
+        res.status(201).json({
+          _id: newUser._id,
+          fullName: newUser.fullName,
+          email: newUser.email,
+          profilePic: newUser.profilePic,
+          bio: newUser.bio,
+          location: newUser.location,
+          interests: newUser.interests,
+          ecoPoints: newUser.ecoPoints,
+          followers: newUser.followers,
+          following: newUser.following,
+        });
+      } else {
+        res.status(400).json({ message: "Invalid user data" });
+      }
+    } catch (dbError) {
+      console.error("Database operation error during signup:", dbError);
+      return res.status(500).json({ 
+        message: "Database operation failed, please try again",
+        error: "database_timeout"
+      });
     }
   } catch (error) {
-    console.log("Error in signup controller", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Error in signup controller:", error);
+    res.status(500).json({ 
+      message: "Internal Server Error",
+      error: error.message
+    });
   }
 };
 
