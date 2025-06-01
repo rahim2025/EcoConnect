@@ -38,53 +38,56 @@ const __dirname = path.resolve();
 app.use(express.json({ limit: '50mb' }));  // Increased limit for image upload
 app.use(cookieParser());
 
-// Enhanced CORS configuration
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      console.log(`CORS check - Origin: ${origin}`);
-      console.log(`CLIENT_URL env var: ${process.env.CLIENT_URL}`);
-      
-      const allowedOrigins = process.env.CLIENT_URL ? 
-        process.env.CLIENT_URL.split(',').map(url => url.trim()) : 
-        [
-          "http://localhost:5173", 
-          "http://localhost:5174",
-          "https://eco-connect-l9yy.vercel.app" // Fallback for your frontend
-        ];
-      
+// Enhanced CORS configuration with more debugging and explicit Vercel deployment support
+app.use((req, res, next) => {
+  // Log all incoming request origins for debugging
+  console.log(`Incoming request from origin: ${req.headers.origin}`);
+  
+  // Get list of allowed origins
+  const allowedOrigins = process.env.CLIENT_URL ? 
+    process.env.CLIENT_URL.split(',').map(url => url.trim()) : 
+    [
+      "http://localhost:5173", 
+      "http://localhost:5174",
+      "https://eco-connect-l9yy.vercel.app" // Hardcoded fallback for your frontend
+    ];
+  
+  console.log(`Configured allowed origins: ${allowedOrigins.join(', ')}`);
+  
+  const origin = req.headers.origin;
+  
+  // Set CORS headers for preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log('Processing preflight request');
+    
+    // Handle preflight requests directly
+    if (origin && (allowedOrigins.includes(origin) || origin === 'https://eco-connect-l9yy.vercel.app')) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie, X-Requested-With, Accept, Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Expose-Headers', 'Set-Cookie');
+      res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+      res.status(200).end();
+      return;
+    }
+  } 
+  // Set CORS headers for all other requests
+  else if (origin) {
+    // Always allow the frontend Vercel app regardless of environment variables
+    if (allowedOrigins.includes(origin) || origin === 'https://eco-connect-l9yy.vercel.app') {
+      console.log(`Setting CORS headers for origin: ${origin}`);
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Expose-Headers', 'Set-Cookie');
+    } else {
+      console.log(`Origin not in allowed list: ${origin}`);
       console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
-      
-      // Allow requests with no origin (like mobile apps, Postman, etc.)
-      if (!origin) {
-        console.log('No origin - allowing request');
-        return callback(null, true);
-      }
-      
-      if (allowedOrigins.includes(origin)) {
-        console.log(`Origin ${origin} is allowed`);
-        callback(null, true);
-      } else {
-        console.log(`CORS blocked origin: ${origin}`);
-        console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: [
-      'Content-Type', 
-      'Authorization', 
-      'Cookie', 
-      'X-Requested-With',
-      'Accept',
-      'Origin'
-    ],
-    exposedHeaders: ['Set-Cookie'],
-    optionsSuccessStatus: 200, // For legacy browser support
-    preflightContinue: false,
-  })
-);
+    }
+  }
+  
+  next();
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
