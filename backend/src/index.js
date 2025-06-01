@@ -39,8 +39,25 @@ app.use(express.json({ limit: '50mb' }));  // Increased limit for image upload
 app.use(cookieParser());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ["http://localhost:5173", "http://localhost:5174"],
+    origin: function (origin, callback) {
+      const allowedOrigins = process.env.CLIENT_URL ? 
+        process.env.CLIENT_URL.split(',') : 
+        ["http://localhost:5173", "http://localhost:5174"];
+      
+      // Allow requests with no origin (like mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked origin: ${origin}`);
+        console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   })
 );
 
