@@ -79,15 +79,17 @@ app.options('*', (req, res) => {
   console.log('Handling OPTIONS preflight request explicitly');
   
   const origin = req.headers.origin;
+  // Must use specific origin with credentials, not wildcard
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else {
+    // Don't set credentials with wildcard
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie, X-Requested-With, Accept, Origin');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   res.status(200).send('OK');
 });
@@ -127,11 +129,26 @@ app.get("/cors-test", (req, res) => {
 
 // Handle OPTIONS at the root level explicitly
 app.options("*", (req, res) => {
-  const origin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  const origin = req.headers.origin;
+  
+  // We must specify an exact origin when credentials are 'include'
+  // Cannot use wildcard '*' with credentials
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    // No origin header, don't set credentials
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'false');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token,X-Requested-With,Accept,Accept-Version,Content-Length,Content-Type,Date,X-Api-Version,Origin,Authorization,Cookie');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Only set Allow-Credentials when we have a specific origin
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  
   res.status(200).end();
 });
 
