@@ -47,7 +47,14 @@ export const signup = async (req, res) => {
       if (newUser) {
         // generate jwt token here
         generateToken(newUser._id, res);
-        await newUser.save().maxTimeMS(15000);
+        
+        // Set a timeout for the save operation using Promise.race
+        const savePromise = newUser.save();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Save operation timed out')), 15000)
+        );
+        
+        await Promise.race([savePromise, timeoutPromise]);
   
         res.status(201).json({
           _id: newUser._id,
