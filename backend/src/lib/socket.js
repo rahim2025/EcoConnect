@@ -7,12 +7,18 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:5174",
+      "https://eco-connect-l9yy.vercel.app"
+    ],
     methods: ["GET", "POST"],
     credentials: true
   },
   pingTimeout: 60000, // 60 seconds to consider a client disconnected if no pong received
   pingInterval: 25000, // 25 seconds between pings
+  transports: ['websocket', 'polling'], // Allow both websocket and polling
+  allowEIO3: true // Enable backward compatibility
 });
 
 export function getReceiverSocketId(userId) {

@@ -249,17 +249,35 @@ export const useAuthStore = create((set, get) => ({
       existingSocket.disconnect();
     }
 
-    console.log(`Connecting socket for user: ${authUser._id}`);
+    console.log(`Attempting to connect socket for user: ${authUser._id}`);
     
     const socket = io(BASE_URL, {
       query: {
         userId: authUser._id,
       },
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 2, // Further reduced for faster fallback
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000
+      reconnectionDelayMax: 2000,
+      timeout: 5000, // Reduced timeout for faster failure detection
+      transports: ['polling', 'websocket'], // Try polling first for better Vercel compatibility
+      forceNew: true
     });
+
+    // Set a timeout to fallback to non-socket mode if connection fails
+    const connectionTimeout = setTimeout(() => {
+      if (!socket.connected) {
+        console.log("Socket connection timeout - app will work in offline mode");
+        socket.disconnect();
+        set({ socket: null });
+        // Only show notification in development, not in production
+        if (import.meta.env.DEV) {
+          toast("Real-time features disabled (development mode)", {
+            duration: 2000,
+            icon: "ℹ️"
+          });
+        }
+      }
+    }, 8000); // Reduced timeout
     
     // Connect explicitly
     socket.connect();
@@ -267,6 +285,7 @@ export const useAuthStore = create((set, get) => ({
     // Set the socket in state once connected
     socket.on("connect", () => {
       console.log(`Socket connected successfully with ID: ${socket.id}`);
+      clearTimeout(connectionTimeout);
       set({ socket: socket });
       
       // Immediately request online users after connection
@@ -275,21 +294,26 @@ export const useAuthStore = create((set, get) => ({
     
     // Connection error handling
     socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-      toast.error("Connection error. Please check your internet connection.");
+      console.log("Socket connection failed (expected on serverless hosting)");
+      clearTimeout(connectionTimeout);
+      set({ socket: null });
+      // No toast notification - this is expected behavior
     });
     
     // Handle reconnection
     socket.on("reconnect", (attemptNumber) => {
       console.log(`Socket reconnected after ${attemptNumber} attempts`);
+      clearTimeout(connectionTimeout);
       // Refresh online users after reconnection
       socket.emit("requestOnlineUsers");
     });
     
     // Handle reconnection failure
     socket.on("reconnect_failed", () => {
-      console.error("Socket reconnection failed");
-      toast.error("Unable to connect to the server. Please refresh the page.");
+      console.log("Socket reconnection failed - app continues without real-time features");
+      clearTimeout(connectionTimeout);
+      set({ socket: null });
+      // No toast notification - graceful degradation
     });
 
     socket.on("getOnlineUsers", (userIds) => {
@@ -498,6 +522,11 @@ export const useAuthStore = create((set, get) => ({
     });
   },
   disconnectSocket: () => {
-    if (get().socket?.connected) get().socket.disconnect();
+    const currentSocket = get().socket;
+    if (currentSocket?.connected) {
+      console.log("Disconnecting socket");
+      currentSocket.disconnect();
+    }
+    set({ socket: null });
   },
 }));
