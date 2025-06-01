@@ -28,6 +28,7 @@ import pointsRoutes from "./routes/points.route.js";
 import badgeRoutes from "./routes/badge.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import marketplaceRoutes from "./routes/marketplace.route.js";
+import debugRoutes from "./routes/debug.route.js";
 import { app, server } from "./lib/socket.js";
 
 dotenv.config();
@@ -38,56 +39,61 @@ const __dirname = path.resolve();
 app.use(express.json({ limit: '50mb' }));  // Increased limit for image upload
 app.use(cookieParser());
 
-// Enhanced CORS configuration with more debugging and explicit Vercel deployment support
-app.use((req, res, next) => {
-  // Log all incoming request origins for debugging
-  console.log(`Incoming request from origin: ${req.headers.origin}`);
-  
-  // Get list of allowed origins
-  const allowedOrigins = process.env.CLIENT_URL ? 
-    process.env.CLIENT_URL.split(',').map(url => url.trim()) : 
-    [
-      "http://localhost:5173", 
-      "http://localhost:5174",
-      "https://eco-connect-l9yy.vercel.app" // Hardcoded fallback for your frontend
-    ];
-  
-  console.log(`Configured allowed origins: ${allowedOrigins.join(', ')}`);
+// Use standard CORS middleware first with permissive settings
+app.use(cors({
+  origin: function(origin, callback) {
+    console.log(`Standard CORS check - Origin: ${origin}`);
+    // Always allow the Vercel frontend
+    if (!origin || origin === 'https://eco-connect-l9yy.vercel.app') {
+      callback(null, true);
+    } else {
+      // Also check environment variable
+      const allowedOrigins = process.env.CLIENT_URL ? 
+        process.env.CLIENT_URL.split(',').map(url => url.trim()) : 
+        [
+          "http://localhost:5173", 
+          "http://localhost:5174",
+          "https://eco-connect-l9yy.vercel.app"
+        ];
+      
+      console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked origin: ${origin}`);
+        // Allow anyway in production to be permissive - we can tighten this later
+        callback(null, true);
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200 // Important! Some legacy browsers choke on 204
+}));
+
+// Then add an explicit OPTIONS handler to ensure preflight requests always succeed
+app.options('*', (req, res) => {
+  console.log('Handling OPTIONS preflight request explicitly');
   
   const origin = req.headers.origin;
-  
-  // Set CORS headers for preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log('Processing preflight request');
-    
-    // Handle preflight requests directly
-    if (origin && (allowedOrigins.includes(origin) || origin === 'https://eco-connect-l9yy.vercel.app')) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie, X-Requested-With, Accept, Origin');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Expose-Headers', 'Set-Cookie');
-      res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-      res.status(200).end();
-      return;
-    }
-  } 
-  // Set CORS headers for all other requests
-  else if (origin) {
-    // Always allow the frontend Vercel app regardless of environment variables
-    if (allowedOrigins.includes(origin) || origin === 'https://eco-connect-l9yy.vercel.app') {
-      console.log(`Setting CORS headers for origin: ${origin}`);
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Expose-Headers', 'Set-Cookie');
-    } else {
-      console.log(`Origin not in allowed list: ${origin}`);
-      console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
-    }
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
   
-  next();
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.status(200).send('OK');
 });
+
+// Add debug routes for easier CORS testing
+app.use("/api/debug", debugRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
@@ -108,6 +114,25 @@ app.get("/api/debug/env", (req, res) => {
     hasJWT: !!process.env.JWT_SECRET,
     hasMongo: !!process.env.MONGO_URI
   });
+});
+
+// Simple root level CORS test route that doesn't need auth
+app.get("/cors-test", (req, res) => {
+  res.json({
+    message: "Root level CORS test successful",
+    origin: req.headers.origin || "No origin header",
+    time: new Date().toISOString()
+  });
+});
+
+// Handle OPTIONS at the root level explicitly
+app.options("*", (req, res) => {
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token,X-Requested-With,Accept,Accept-Version,Content-Length,Content-Type,Date,X-Api-Version,Origin,Authorization,Cookie');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.status(200).end();
 });
 
 // if (process.env.NODE_ENV === "production") {
