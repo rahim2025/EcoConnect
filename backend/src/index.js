@@ -32,14 +32,14 @@ import { app, server } from "./lib/socket.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 const __dirname = path.resolve();
 
 app.use(express.json({ limit: '50mb' }));  // Increased limit for image upload
 app.use(cookieParser());
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   })
 );
@@ -65,8 +65,8 @@ app.use("/api/marketplace", marketplaceRoutes);
 
 // Connect to database before starting server
 connectDB().then(() => {
-  server.listen(5000, () => {
-    console.log("server is running on PORT:5000");
+  server.listen(PORT, () => {
+    console.log(`server is running on PORT:${PORT}`);
   });
 }).catch(err => {
   console.error("Failed to connect to database:", err);
