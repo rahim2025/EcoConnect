@@ -10,8 +10,10 @@ export const axiosInstance = axios.create({
 // Add request interceptor to make sure JWT cookie is sent with every request
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Log the request URL for debugging
-    console.log(`Making request to: ${config.url}`);
+    // Log the full request URL for debugging
+    const fullUrl = config.baseURL + config.url;
+    console.log(`Making request to: ${fullUrl}`);
+    console.log(`API Base URL: ${API_BASE_URL}`);
     
     // Ensure withCredentials is set for every request to send cookies
     config.withCredentials = true;
