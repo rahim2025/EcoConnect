@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import mongoose from "mongoose";
+import { getRandomDefaultInterests, generateDefaultBio } from "../utils/profileDefaults.js";
 
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
@@ -38,10 +39,16 @@ export const signup = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
   
+      // Set default eco-friendly interests and bio for new users
+      const defaultInterests = getRandomDefaultInterests(3);
+      const defaultBio = generateDefaultBio(fullName);
+
       const newUser = new User({
         fullName,
         email,
         password: hashedPassword,
+        interests: defaultInterests,
+        bio: defaultBio,
       });
   
       if (newUser) {
