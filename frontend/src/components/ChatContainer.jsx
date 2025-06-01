@@ -16,7 +16,7 @@ const ChatContainer = ({ isDrawer = false }) => {
     subscribeToMessages,
     unsubscribeFromMessages,
   } = useChatStore();
-  const { authUser } = useAuthStore();
+  const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef(null);
 
   useEffect(() => {
@@ -52,10 +52,18 @@ const ChatContainer = ({ isDrawer = false }) => {
       </div>
     );
   }
-
   return (
     <div className="flex-1 flex flex-col overflow-auto">
       <ChatHeader isDrawer={isDrawer} />
+      
+      {/* Show info banner when socket is not available */}
+      {!socket && (
+        <div className="bg-blue-50 border-b border-blue-200 px-3 py-2">
+          <p className="text-xs text-blue-700 text-center">
+            ℹ️ Real-time chat is temporarily unavailable. Messages will still be delivered!
+          </p>
+        </div>
+      )}
 
       <div className={`flex-1 overflow-y-auto ${isDrawer ? "p-2" : "p-4"} space-y-4`}>
         {messages.map((message) => (

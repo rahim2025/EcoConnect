@@ -48,6 +48,12 @@ export const useChatStore = create((set, get) => ({
     if (!selectedUser) return;
 
     const socket = useAuthStore.getState().socket;
+    
+    // Check if socket exists and is connected (graceful fallback for serverless)
+    if (!socket || !socket.connected) {
+      console.log("Socket not available - chat will work without real-time updates");
+      return;
+    }
 
     socket.on("newMessage", (newMessage) => {
       const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
@@ -61,6 +67,13 @@ export const useChatStore = create((set, get) => ({
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
+    
+    // Check if socket exists before trying to unsubscribe
+    if (!socket) {
+      console.log("Socket not available for unsubscribing - this is expected on serverless");
+      return;
+    }
+    
     socket.off("newMessage");
   },
 
