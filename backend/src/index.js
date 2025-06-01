@@ -160,15 +160,28 @@ app.options("*", (req, res) => {
 //   });
 // }
 
-// Connect to database before starting server
+// Immediately connect to database
 connectDB().then(() => {
-  server.listen(PORT, () => {
-    console.log(`server is running on PORT:${PORT}`);
-  });
+  console.log('MongoDB connected successfully');
+  
+  // Only start the server when we're not in serverless mode
+  if (process.env.NODE_ENV !== 'production') {
+    server.listen(PORT, () => {
+      console.log(`Server is running on PORT:${PORT}`);
+    });
+  } else {
+    console.log('Running in serverless mode - not starting server');
+  }
 }).catch(err => {
   console.error("Failed to connect to database:", err);
-  process.exit(1);
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
-// Export the Express app and server for Vercel serverless functions
+// For Vercel, we need to export a function or server
+// This must be a default export
+export default app;
+
+// Also export the app and server objects for local development
 export { app, server };
