@@ -8,7 +8,7 @@ import { useBadgeStore } from "./useBadgeStore";
 import { startTitleNotification, stopTitleNotification } from "../utils/titleNotification.js";
 import { MessageSquare } from "lucide-react"; // Import MessageSquare icon
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
