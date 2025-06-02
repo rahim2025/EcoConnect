@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
-import { LogOut, MessageSquare, Settings, User, CalendarDays, Award } from "lucide-react";
+import { LogOut, MessageSquare, User, CalendarDays, Award } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useEffect, useState } from "react";
 
@@ -100,17 +100,6 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              to={"/settings"}
-              className={`
-              btn btn-sm gap-2 transition-colors
-              
-              `}
-            >
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </Link>
-            
             {authUser && authUser.isAdmin && (
               <Link
                 to="/admin"

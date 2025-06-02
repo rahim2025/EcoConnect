@@ -1,7 +1,6 @@
 import User from "../models/user.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import mongoose from "mongoose";
-import { getDefaultProfileCompletion, suggestInterestsBasedOnLocation, getDefaultEcoInterests } from "../utils/profileDefaults.js";
 
 // Get the current user's profile
 export const getProfile = async (req, res) => {  try {

@@ -6,7 +6,6 @@ import {
   BarChart2, 
   Bell, 
   Shield, 
-  Settings,
   User,
   PlusCircle, 
   Search,
