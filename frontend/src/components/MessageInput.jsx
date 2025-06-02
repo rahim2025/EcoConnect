@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { Image, Send, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { compressImage } from "../utils/imageCompression";
+import { formatFileSize, validateFileSize, validateFileType } from "../utils/fileUtils";
 
 const MessageInput = ({ isDrawer }) => {
   const [text, setText] = useState("");
@@ -9,18 +11,43 @@ const MessageInput = ({ isDrawer }) => {
   const fileInputRef = useRef(null);
   const { sendMessage } = useChatStore();
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+    if (!file) return;
+
+    // Validate file type
+    if (!validateFileType(file, ['image/jpeg', 'image/png', 'image/webp'])) {
+      toast.error("Only JPEG, PNG, and WebP images are allowed");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // Validate file size (10MB limit)
+    if (!validateFileSize(file, 10 * 1024 * 1024)) {
+      toast.error(`File size too large (max ${formatFileSize(10 * 1024 * 1024)})`);
+      return;
+    }
+
+    try {
+      // Compress the image
+      const compressedImage = await compressImage(file, {
+        maxWidth: 800,
+        maxHeight: 800,
+        quality: 0.8,
+        outputFormat: 'image/jpeg'
+      });
+      
+      setImagePreview(compressedImage);
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast.error(`Failed to process image. ${error.message}`);
+      
+      // Fallback to original image if compression fails
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const removeImage = () => {

@@ -23,13 +23,17 @@ export const createMarketplaceItem = async (req, res) => {
     } = req.body;
 
     let images = [];
-    
-    // Handle image uploads
+      // Handle image uploads
     if (req.body.images && Array.isArray(req.body.images)) {
       for (const imageData of req.body.images) {
         if (imageData.startsWith('data:image')) {
           const uploadResponse = await cloudinary.uploader.upload(imageData, {
-            folder: 'marketplace_items'
+            folder: 'marketplace_items',
+            transformation: [
+              { width: 1200, height: 1200, crop: "limit" },
+              { quality: "auto:good" },
+              { format: "auto" }
+            ]
           });
           images.push(uploadResponse.secure_url);
         }
@@ -246,10 +250,14 @@ export const updateMarketplaceItem = async (req, res) => {
     // Handle image updates
     if (updates.images && Array.isArray(updates.images)) {
       const images = [];
-      for (const imageData of updates.images) {
-        if (imageData.startsWith('data:image')) {
+      for (const imageData of updates.images) {        if (imageData.startsWith('data:image')) {
           const uploadResponse = await cloudinary.uploader.upload(imageData, {
-            folder: 'marketplace_items'
+            folder: 'marketplace_items',
+            transformation: [
+              { width: 1200, height: 1200, crop: "limit" },
+              { quality: "auto:good" },
+              { format: "auto" }
+            ]
           });
           images.push(uploadResponse.secure_url);
         } else if (imageData.startsWith('http')) {

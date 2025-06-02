@@ -22,12 +22,15 @@ export const createEvent = async (req, res) => {
       organizer: userId,
       participants: [userId], // Organizer is automatically a participant
       maxParticipants: maxParticipants || 0
-    };
-
-    // Upload image if provided
+    };    // Upload image if provided
     if (image) {
       const uploadResponse = await cloudinary.uploader.upload(image, {
         folder: "eco_events",
+        transformation: [
+          { width: 1200, height: 1200, crop: "limit" },
+          { quality: "auto:good" },
+          { format: "auto" }
+        ]
       });
       eventData.image = uploadResponse.secure_url;
     }
@@ -254,11 +257,15 @@ export const updateEvent = async (req, res) => {
     if (category) event.category = category;
     if (status) event.status = status;
     if (maxParticipants !== undefined) event.maxParticipants = maxParticipants;
-    
-    // Update image if provided
+      // Update image if provided
     if (image && image !== event.image) {
       const uploadResponse = await cloudinary.uploader.upload(image, {
         folder: "eco_events",
+        transformation: [
+          { width: 1200, height: 1200, crop: "limit" },
+          { quality: "auto:good" },
+          { format: "auto" }
+        ]
       });
       event.image = uploadResponse.secure_url;
     }

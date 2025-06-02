@@ -39,19 +39,16 @@ export const signup = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
   
-      // Set default eco-friendly interests for new users
-      const defaultInterests = [
-        "Sustainability",
-        "Climate Action",
-        "Green Living"
-      ];
+      // Set default eco-friendly interests and bio for new users
+      const defaultInterests = getRandomDefaultInterests(3);
+      const defaultBio = generateDefaultBio(fullName);
 
       const newUser = new User({
         fullName,
         email,
         password: hashedPassword,
         interests: defaultInterests,
-        bio: `🌱 Hi, I'm ${fullName}! New to EcoConnect and excited to learn about sustainable living and climate action.`,
+        bio: defaultBio,
       });
   
       if (newUser) {
@@ -157,7 +154,14 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: "Profile pic is required" });
     }
 
-    const uploadResponse = await cloudinary.uploader.upload(profilePic);
+    const uploadResponse = await cloudinary.uploader.upload(profilePic, {
+      folder: "profile_pics",
+      transformation: [
+        { width: 800, height: 800, crop: "limit" },
+        { quality: "auto:good" },
+        { format: "auto" }
+      ]
+    });
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { profilePic: uploadResponse.secure_url },

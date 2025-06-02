@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { X, Upload, MapPin, DollarSign, Tag, Leaf, Image as ImageIcon } from "lucide-react";
 import { useMarketplaceStore } from "../store/useMarketplaceStore";
+import { compressImage } from "../utils/imageCompression";
+import { formatFileSize, validateFileSize, validateFileType } from "../utils/fileUtils";
+import toast from "react-hot-toast";
 
 const CreateMarketplaceItemModal = ({ isOpen, onClose, editItem = null, onSuccess }) => {
   const { createMarketplaceItem, updateMarketplaceItem, categories, getCategories, isCreating, isUpdating } = useMarketplaceStore();
@@ -100,19 +103,56 @@ const CreateMarketplaceItemModal = ({ isOpen, onClose, editItem = null, onSucces
       }
     }));
   };
-
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     
-    files.forEach(file => {
-      if (file.type.startsWith('image/')) {
+    for (const file of files) {
+      // Validate file type
+      if (!validateFileType(file, ['image/jpeg', 'image/png', 'image/webp'])) {
+        toast.error(`${file.name}: Only JPEG, PNG, and WebP images are allowed`);
+        continue;
+      }
+
+      // Validate file size (10MB limit)
+      if (!validateFileSize(file, 10 * 1024 * 1024)) {
+        toast.error(`${file.name}: File size too large (max ${formatFileSize(10 * 1024 * 1024)})`);
+        continue;
+      }
+
+      try {
+        // Compress the image
+        const compressedImage = await compressImage(file, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.8,
+          outputFormat: 'image/jpeg'
+        });
+        
+        setImages(prev => {
+          if (prev.length >= 6) {
+            toast.error('Maximum 6 images allowed');
+            return prev;
+          }
+          return [...prev, compressedImage];
+        });
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast.error(`Failed to process ${file.name}. ${error.message}`);
+        
+        // Fallback to original image if compression fails
         const reader = new FileReader();
         reader.onload = (e) => {
-          setImages(prev => [...prev, e.target.result]);
+          setImages(prev => {
+            if (prev.length >= 6) {
+              toast.error('Maximum 6 images allowed');
+              return prev;
+            }
+            return [...prev, e.target.result];
+          });
         };
         reader.readAsDataURL(file);
       }
-    });
+    }
   };
 
   const removeImage = (index) => {

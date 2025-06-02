@@ -3,6 +3,8 @@ import { axiosInstance } from '../../lib/axios';
 import { Gift, PlusCircle, Save, Trash2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { compressImage } from '../../utils/imageCompression';
+import { formatFileSize, validateFileSize, validateFileType } from '../../utils/fileUtils';
 
 const DEFAULT_FORM = {
   name: '',
@@ -38,17 +40,47 @@ const AdminRewardManager = () => {
       setLoading(false);
     }
   };
-
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value, type, files } = e.target;
     
     if (type === 'file' && files[0]) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setFormData(prev => ({ ...prev, image: reader.result }));
-        setPreviewImage(reader.result);
-      };
-      reader.readAsDataURL(files[0]);
+      const file = files[0];
+      
+      // Validate file type
+      if (!validateFileType(file, ['image/jpeg', 'image/png', 'image/webp'])) {
+        toast.error('Only JPEG, PNG, and WebP images are allowed');
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (!validateFileSize(file, 10 * 1024 * 1024)) {
+        toast.error(`File size too large (max ${formatFileSize(10 * 1024 * 1024)})`);
+        return;
+      }
+
+      try {
+        // Compress the image
+        const compressedImage = await compressImage(file, {
+          maxWidth: 800,
+          maxHeight: 800,
+          quality: 0.8,
+          outputFormat: 'image/jpeg'
+        });
+        
+        setFormData(prev => ({ ...prev, image: compressedImage }));
+        setPreviewImage(compressedImage);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast.error(`Failed to process image. ${error.message}`);
+        
+        // Fallback to original image if compression fails
+        const reader = new FileReader();
+        reader.onload = () => {
+          setFormData(prev => ({ ...prev, image: reader.result }));
+          setPreviewImage(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }

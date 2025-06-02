@@ -49,10 +49,16 @@ export const updateProfile = async (req, res) => {
     if (bio !== undefined) updateData.bio = bio;
     if (location !== undefined) updateData.location = location;
     if (interests !== undefined) updateData.interests = interests;
-    
-    // Handle profile picture upload if provided
+      // Handle profile picture upload if provided
     if (profilePic && profilePic !== req.user.profilePic) {
-      const uploadResponse = await cloudinary.uploader.upload(profilePic);
+      const uploadResponse = await cloudinary.uploader.upload(profilePic, {
+        folder: "profile_pics",
+        transformation: [
+          { width: 800, height: 800, crop: "limit" },
+          { quality: "auto:good" },
+          { format: "auto" }
+        ]
+      });
       updateData.profilePic = uploadResponse.secure_url;
     }
     

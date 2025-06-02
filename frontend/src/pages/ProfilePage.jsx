@@ -11,6 +11,7 @@ import EcoPost from "../components/EcoPost";
 import CreatePostModal from "../components/CreatePostModal";
 import { useParams, useNavigate } from "react-router-dom";
 import { axiosInstance } from "../lib/axios";
+import { compressImage } from "../utils/imageCompression";
 
 const ProfilePage = () => {
   const { authUser, isUpdatingProfile, updateProfile, followUser, unfollowUser, searchUsers, getFollowers, getFollowing } = useAuthStore();
@@ -181,14 +182,42 @@ const ProfilePage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
+    // Check file size (limit to 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert("File size too large. Please choose an image smaller than 10MB.");
+      return;
+    }
 
-    reader.onload = async () => {
-      const base64Image = reader.result;
-      setSelectedImg(base64Image);
-      await updateProfile({ profilePic: base64Image });
-    };
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Please select a valid image file (JPEG, PNG, or WebP).");
+      return;
+    }
+
+    try {
+      // Compress the image before upload
+      const compressedImage = await compressImage(file, {
+        maxWidth: 800,
+        maxHeight: 800,
+        quality: 0.8
+      });
+      
+      setSelectedImg(compressedImage);
+      await updateProfile({ profilePic: compressedImage });
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      
+      // Fallback to original image if compression fails (for smaller images)
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Image = reader.result;
+        setSelectedImg(base64Image);
+        await updateProfile({ profilePic: base64Image });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleAddInterest = () => {

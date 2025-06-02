@@ -18,12 +18,15 @@ export const createPost = async (req, res) => {
       content,
       tags: tags || [],
       visibility: visibility || "public"
-    };
-
-    // Handle image upload if provided
+    };    // Handle image upload if provided
     if (image) {
       const uploadResponse = await cloudinary.uploader.upload(image, {
         folder: "eco_posts",
+        transformation: [
+          { width: 1200, height: 1200, crop: "limit" },
+          { quality: "auto:good" },
+          { format: "auto" }
+        ]
       });
       postData.image = uploadResponse.secure_url;
     }

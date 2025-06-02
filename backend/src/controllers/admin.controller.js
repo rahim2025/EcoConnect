@@ -544,12 +544,16 @@ export const createReward = async (req, res) => {
     
     const Reward = mongoose.model('Reward');
     
-    let imageUrl = '';
-    if (image && image.startsWith('data:image')) {
+    let imageUrl = '';    if (image && image.startsWith('data:image')) {
       // Upload image to cloudinary
       const cloudinary = (await import('../lib/cloudinary.js')).default;
       const uploadResponse = await cloudinary.uploader.upload(image, {
-        folder: 'eco_rewards'
+        folder: 'eco_rewards',
+        transformation: [
+          { width: 800, height: 800, crop: "limit" },
+          { quality: "auto:good" },
+          { format: "auto" }
+        ]
       });
       imageUrl = uploadResponse.secure_url;
     }
@@ -594,12 +598,16 @@ export const updateReward = async (req, res) => {
     if (quantity !== undefined) reward.quantity = Number(quantity);
     if (expiresAt !== undefined) reward.expiresAt = expiresAt || null;
     if (available !== undefined) reward.available = Boolean(available);
-    
-    // Handle image update if provided and is a new image
+      // Handle image update if provided and is a new image
     if (image && image.startsWith('data:image') && image !== reward.image) {
       const cloudinary = (await import('../lib/cloudinary.js')).default;
       const uploadResponse = await cloudinary.uploader.upload(image, {
-        folder: 'eco_rewards'
+        folder: 'eco_rewards',
+        transformation: [
+          { width: 800, height: 800, crop: "limit" },
+          { quality: "auto:good" },
+          { format: "auto" }
+        ]
       });
       reward.image = uploadResponse.secure_url;
     }

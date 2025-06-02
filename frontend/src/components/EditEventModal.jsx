@@ -8,6 +8,8 @@ import {
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { compressImage } from '../utils/imageCompression';
+import { formatFileSize, validateFileSize, validateFileType } from '../utils/fileUtils';
 
 const EditEventModal = ({ event, onClose }) => {
   // Format date and time from ISO string
@@ -46,19 +48,46 @@ const EditEventModal = ({ event, onClose }) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
-  
-  const handleImageChange = (e) => {
+    const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-        setFormData({ ...formData, image: e.target.result });
+      // Validate file type
+      if (!validateFileType(file, ['image/jpeg', 'image/png', 'image/webp'])) {
+        toast.error('Only JPEG, PNG, and WebP images are allowed');
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (!validateFileSize(file, 10 * 1024 * 1024)) {
+        toast.error(`File size too large (max ${formatFileSize(10 * 1024 * 1024)})`);
+        return;
+      }
+
+      try {
+        // Compress the image
+        const compressedImage = await compressImage(file, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.8,
+          outputFormat: 'image/jpeg'
+        });
+        
+        setImagePreview(compressedImage);
+        setFormData({ ...formData, image: compressedImage });
         setImageChanged(true);
-      };
-      
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast.error(`Failed to process image. ${error.message}`);
+        
+        // Fallback to original image if compression fails
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target.result);
+          setFormData({ ...formData, image: e.target.result });
+          setImageChanged(true);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
   
